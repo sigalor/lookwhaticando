@@ -125,8 +125,8 @@
 - `./primes --action=generate --limit=1M --output=primes1m.txt`
 - `./primes --action=last-digit-ascii-art --limit=100K`
 - `./primes --action=last-digit-ascii-art --limit=100K --enable-ascii-art-colors=y --base=16 --row-interval=1,2 --column-interval=1,2`
-- ./primes --action=plot-diagonal-averages --prime-input=primes1m.txt --limit=100K`
-- ./primes --action=plot-diagonal-averages --prime-input=primes1m.txt --limit=100K --base=128 --row-interval=1,2 --column-interval=1,2`
+- `./primes --action=plot-diagonal-averages --prime-input=primes1m.txt --limit=100K`
+- `./primes --action=plot-diagonal-averages --prime-input=primes1m.txt --limit=100K --base=128 --row-interval=1,2 --column-interval=1,2`
 
 # Meta information
 Original date of creation: 14.05.2016  
