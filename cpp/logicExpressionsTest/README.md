@@ -18,6 +18,5 @@ When you're using BASH, you have to escape all of these characters, because they
 - `!A|B&(C|!(D|!B))`: some weird expression with four variables
 
 # Meta information
-Original date of creation: 03.01.2015
-
+Original date of creation: 03.01.2015  
 Topics: simple parsing, logical evaluation
