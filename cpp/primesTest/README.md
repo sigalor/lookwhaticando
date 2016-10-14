@@ -120,14 +120,14 @@
 ```
 
 # Examples
-- ./primes --action=generate --limit=10K
-- ./primes --action=generate --limit=10K --base=26,ABCDEFGHIJKLMNOPQRSTUVWXYZ
-- ./primes --action=generate --limit=1M --output=primes1m.txt
-- ./primes --action=last-digit-ascii-art --limit=100K
-- ./primes --action=last-digit-ascii-art --limit=100K --enable-ascii-art-colors=y --base=16 --row-interval=1,2 --column-interval=1,2
-- ./primes --action=plot-diagonal-averages --prime-input=primes1m.txt --limit=100K
-- ./primes --action=plot-diagonal-averages --prime-input=primes1m.txt --limit=100K --base=128 --row-interval=1,2 --column-interval=1,2
+- `./primes --action=generate --limit=10K`
+- `./primes --action=generate --limit=10K --base=26,ABCDEFGHIJKLMNOPQRSTUVWXYZ`
+- `./primes --action=generate --limit=1M --output=primes1m.txt`
+- `./primes --action=last-digit-ascii-art --limit=100K`
+- `./primes --action=last-digit-ascii-art --limit=100K --enable-ascii-art-colors=y --base=16 --row-interval=1,2 --column-interval=1,2`
+- ./primes --action=plot-diagonal-averages --prime-input=primes1m.txt --limit=100K`
+- ./primes --action=plot-diagonal-averages --prime-input=primes1m.txt --limit=100K --base=128 --row-interval=1,2 --column-interval=1,2`
 
 # Meta information
-Original creation date: 14.05.2016  
-Topics: command line parameter parsing, prime generation, plotting in terminal
+Original date of creation: 14.05.2016  
+Topics: command line parameter parsing, prime generation, plotting in terminal, using different number bases
