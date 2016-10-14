@@ -1,0 +1,176 @@
+<html>
+	<head>
+		<meta charset="utf-8">
+		<title>Fibonacci Graph</title>
+		<script type="text/javascript">
+			let totalGenerations;
+			let canvas, ctx;
+			let individualCount = [];
+			let individualDrawSize = 50, individualDrawRadius = 20, individualDrawOffset = 25;
+		
+			function generateIndividualCount()
+			{
+				individualCount.push(
+				{
+					babiesL: 0,			//number of babies on the left side of the main individual
+					babiesR: 0,
+					adultsL: 0,
+					adultsR: 0,
+					total: 1			//total number of individuals (sum of all other members+1, because the main individual counts as well)
+				});
+				
+				for(let i=1; i<totalGenerations+1; i++)
+				{
+					let last = individualCount[individualCount.length - 1];
+					let next =
+					{
+						//make an adult alternate between having a baby at the left and the right side (right side first)
+						babiesL: (i>1 ? i%2 : 0) + last.adultsL,
+						babiesR: (i>1 ? 1-i%2 : 0) + last.adultsR,
+						adultsL: last.babiesL + last.adultsL,
+						adultsR: last.babiesR + last.adultsR
+					};
+					next.total = next.babiesL + next.babiesR + next.adultsL + next.adultsR;
+					individualCount.push(next);
+				}
+			}
+			
+			function setupContext()
+			{
+				canvas.width = individualDrawSize * (individualCount[individualCount.length - 1].total + 1);
+				canvas.height = individualDrawSize * (totalGenerations + 1);
+				ctx = canvas.getContext("2d");
+			}
+			
+			function deepCopy(obj)
+			{
+				return JSON.parse(JSON.stringify(obj));
+			}
+
+			function drawIndividual(isBaby, x, y)
+			{
+				ctx.beginPath();
+				ctx.fillStyle = isBaby ? "red" : "black";
+				ctx.arc(x*individualDrawSize + individualDrawOffset, y*individualDrawSize + individualDrawOffset, individualDrawRadius, 0, 2*Math.PI);
+				ctx.fill();
+			}
+			
+			function drawLine(x1, y1, x2, y2)
+			{
+				ctx.beginPath();
+				ctx.strokeStyle = "blue";
+				ctx.lineWidth = 3;
+				ctx.moveTo(x1*individualDrawSize + individualDrawOffset, y1*individualDrawSize + individualDrawOffset);
+				ctx.lineTo(x2*individualDrawSize + individualDrawOffset, y2*individualDrawSize + individualDrawOffset);
+				ctx.stroke();
+			}
+
+			function getIndividualCountLeft(i)		//left like in "the opposite of right"
+			{
+				return individualCount[i].babiesL + individualCount[i].adultsL;
+			}
+			
+			function getIndividualCountRight(i)
+			{
+				return individualCount[i].babiesR + individualCount[i].adultsR;
+			}
+			
+			function getPosition(ancestorInformation)
+			{
+				let prevInfo;
+				let tempInfo = ancestorInformation;
+				let currDepth = 0;
+				
+				while(1)
+				{
+					if(prevInfo == undefined)
+					{
+						tempInfo.birthX = getIndividualCountLeft(totalGenerations);
+						tempInfo.birthY = 0;
+						
+						tempInfo.givingBirthX = tempInfo.birthX;
+						tempInfo.givingBirthY = tempInfo.ageAtGivingBirth;
+					}
+					else
+					{
+						let generationsLeftForParent = totalGenerations - (currDepth-1);
+						let generationsLeftForChild = totalGenerations - currDepth;				//left like in "to go" or "There are 42 cookies left"
+						let isLeftBranch = (prevInfo.ageAtGivingBirth % 2 == 0);
+						let distanceToParent;
+						
+						
+						if(isLeftBranch)
+							distanceToParent = -(getIndividualCountLeft(generationsLeftForParent) + getIndividualCountRight(generationsLeftForChild) + 1);
+						else
+							//some of these directions may seem odd, but because the parent subtree begins with a left branch (and individualCount only contains data for trees beginning with a right branch), it needs to be inversed
+							//if individualCount would have been generated for trees beginning with a left node, all of the getIndividualCountLeft/getIndividualCountRight function would need to be inversed
+							//or, when individualCount would have been generated for both cases, functions like getIndividualCountRight_LeftBegin and getIndividualCountLeft_RightBegin could be used
+							distanceToParent = getIndividualCountLeft(generationsLeftForParent) + getIndividualCountLeft(generationsLeftForChild) + 1;		//+1, because the previous value of distanceToParent is just the number of empty fields (on the x axis) between the parent and the child
+						
+						tempInfo.birthX = prevInfo.givingBirthX + distanceToParent;
+						tempInfo.birthY = prevInfo.givingBirthY + 1;
+						
+						tempInfo.givingBirthX = tempInfo.birthX;
+						tempInfo.givingBirthY = tempInfo.birthY + tempInfo.ageAtGivingBirth;
+					}
+					if(!tempInfo.isParent)
+						break;
+					currDepth += tempInfo.ageAtGivingBirth + 1;
+					prevInfo = tempInfo;
+					tempInfo = tempInfo.child;
+				}
+				
+				return { isBaby: tempInfo.ageAtGivingBirth==0, x: tempInfo.givingBirthX, y: tempInfo.givingBirthY };
+			}
+			
+			function draw(ancestorInformation, parentPos)
+			{
+				let pos = getPosition(ancestorInformation);
+				drawLine(pos.x, pos.y, parentPos.x, parentPos.y);
+				drawIndividual(pos.isBaby, pos.x, pos.y);
+				return pos;
+			}
+			
+			function getDeepestChild(ancestorInformation)
+			{
+				while(ancestorInformation.isParent)
+					ancestorInformation = ancestorInformation.child;
+				return ancestorInformation;
+			}
+			
+			function drawAll(ancestorInformation, depth, parentPos)
+			{
+				if(depth > totalGenerations)
+					return;
+				
+				let pos = draw(ancestorInformation, parentPos);
+				let newAncestorInformation = deepCopy(ancestorInformation);
+				getDeepestChild(newAncestorInformation).ageAtGivingBirth++;
+				drawAll(newAncestorInformation, depth + 1, pos);
+				
+				if(getDeepestChild(ancestorInformation).ageAtGivingBirth > 0)
+				{
+					newAncestorInformation = deepCopy(ancestorInformation);
+					let deepestChild = getDeepestChild(newAncestorInformation);
+					deepestChild.isParent = true;
+					deepestChild.child = { isParent: false, ageAtGivingBirth: 0 };
+					drawAll(newAncestorInformation, depth + 1, pos);
+				}
+			}
+		
+			function load()
+			{
+				totalGenerations = parseInt(prompt("Number of generations?"));
+				if(isNaN(totalGenerations)  ||  totalGenerations < 0)
+					totalGenerations = 0;
+				canvas = document.getElementById("output");
+				generateIndividualCount();
+				setupContext();
+				drawAll({ isParent: false, ageAtGivingBirth: 0 }, 0, 0);					//although this individual does not really give birth after it has been born, it still has an attribute called "ageAtGivingBirth" (like its parents) to achieve a similar effect
+			}
+		</script>
+	</head>
+	<body onload="load()">
+		<canvas id="output" style="position:absolute; top:10px; left:10px">Canvas not supported...</canvas>
+	</body>
+</html>
