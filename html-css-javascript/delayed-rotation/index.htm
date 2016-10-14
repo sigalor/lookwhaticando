@@ -1,0 +1,206 @@
+<html>
+	<head>
+		<meta charset="utf-8">
+		<title>Delayed rotation</title>
+		
+		<script id="mainShaderVSS" type="x-shader/x-vertex">
+			precision mediump float;
+		
+			attribute vec3 vPosition;
+			varying vec3 fPosition;
+			
+			void main(void)
+			{
+				fPosition = vPosition;
+				gl_Position = vec4(vPosition, 1.0);
+			}
+		</script>
+		<script id="mainShaderFSS" type="x-shader/x-fragment">
+			precision mediump float;
+		
+			varying vec3 fPosition;
+			uniform float hueShift;
+			
+			vec3 HSVtoRGB(vec3 hsv)
+			{
+				float V2 = hsv.z * (1.0 - hsv.y);
+				float r  = ((hsv.x>=0.0 && hsv.x<=60.0) || (hsv.x>=300.0 && hsv.x<=360.0)) ? hsv.z : ((hsv.x>=120.0 && hsv.x<=240.0) ? V2 : ((hsv.x>=60.0 && hsv.x<=120.0) ? mix(hsv.z,V2,(hsv.x-60.0)/60.0) : ((hsv.x>=240.0 && hsv.x<=300.0) ? mix(V2,hsv.z,(hsv.x-240.0)/60.0) : 0.0)));
+				float g  = (hsv.x>=60.0 && hsv.x<=180.0) ? hsv.z : ((hsv.x>=240.0 && hsv.x<=360.0) ? V2 : ((hsv.x>=0.0 && hsv.x<=60.0) ? mix(V2,hsv.z,hsv.x/60.0) : ((hsv.x>=180.0 && hsv.x<=240.0) ? mix(hsv.z,V2,(hsv.x-180.0)/60.0) : 0.0)));
+				float b  = (hsv.x>=0.0 && hsv.x<=120.0) ? V2 : ((hsv.x>=180.0 && hsv.x<=300.0) ? hsv.z : ((hsv.x>=120.0 && hsv.x<=180.0) ? mix(V2,hsv.z,(hsv.x-120.0)/60.0) : ((hsv.x>=300.0 && hsv.x<=360.0) ? mix(hsv.z,V2,(hsv.x-300.0)/60.0) : 0.0)));
+				return vec3(r, g, b);
+			}
+			
+			void main(void)
+			{
+				float fPosLen = length(fPosition);
+				if(fPosLen <= 1.0)
+				{
+					float hue;
+					if(fPosition.x == 0.0)
+					{
+						if(fPosition.y >= 0.0)
+							hue = 90.0;
+						else
+							hue = 270.0;
+					}
+					else if(fPosition.y == 0.0)
+					{
+						if(fPosition.x >= 0.0)
+							hue = 0.0;
+						else
+							hue = 180.0;
+					}
+					else
+					{
+						//from https://www.mathsisfun.com/polar-cartesian-coordinates.html
+						hue = atan(fPosition.y/fPosition.x) * (180.0/3.1415926535);
+						if((fPosition.x < 0.0  &&  fPosition.y > 0.0)  ||  (fPosition.x < 0.0  &&  fPosition.y < 0.0))
+							hue += 180.0;
+						else if(fPosition.x > 0.0  &&  fPosition.y < 0.0)
+							hue += 360.0;
+					}
+					gl_FragColor = vec4(HSVtoRGB(vec3(mod(hue + (fPosition.y/2.0+0.5)*90.0 + hueShift, 360.0), 1.0, 1.0)), 1.0);
+				}
+				else
+					gl_FragColor = vec4(1.0);
+			}
+		</script>
+		
+		<script type="text/javascript">
+			var canvas, gl;
+			var vertexShader, fragmentShader, shaderProgram;
+			var rectVerticesBuffer;
+		
+			function initializeCanvasContexts()
+			{	
+				canvas = document.getElementById("mainCanvas");
+				try
+				{
+					gl = canvas.getContext("experimental-webgl");
+					gl.viewportWidth = canvas.width;
+					gl.viewportHeight = canvas.height;
+				}
+				catch(e) { }
+				if(!gl)
+				{
+					alert("Canvas initialization (context: experimental-webgl) failed!");
+					return 1;
+				}
+				
+				return 0;
+			}
+			
+			function generateShader(gl, sourceId)
+			{
+				var source = document.getElementById(sourceId);
+				if(!source)
+					return 0;
+				
+				var str = "";
+				var k = source.firstChild;
+				while(k)
+				{
+					if(k.nodeType == 3)
+						str += k.textContent;
+					k = k.nextSibling;
+				}
+				
+				var shader;
+				if(source.type == "x-shader/x-vertex")
+					shader = gl.createShader(gl.VERTEX_SHADER);
+				else if(source.type == "x-shader/x-fragment")
+					shader = gl.createShader(gl.FRAGMENT_SHADER);
+				else
+					return 0;
+				
+				gl.shaderSource(shader, str);
+				gl.compileShader(shader);
+				
+				if(!gl.getShaderParameter(shader, gl.COMPILE_STATUS))
+				{
+					alert(gl.getShaderInfoLog(shader));
+					return 0;
+				}
+
+				return shader;
+			}
+			
+			function generateShaderProgram(gl, vShader, fShader)
+			{
+				var program = gl.createProgram();
+				gl.attachShader(program, vShader);
+				gl.attachShader(program, fShader);
+				gl.linkProgram(program);
+				
+				if(!gl.getProgramParameter(program, gl.LINK_STATUS))
+				{
+					alert(gl.getProgramInfoLog(program));
+					return 0;
+				}
+
+				return program;
+			}
+			
+			function generateBuffer(gl, data)
+			{
+				var buffer = gl.createBuffer();
+				gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+				gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(data), gl.STATIC_DRAW);
+
+				return buffer;
+			}
+			
+			function initialize()
+			{
+				if(initializeCanvasContexts() == 1)
+					return 1;
+				
+				if((vertexShader = generateShader(gl, "mainShaderVSS")) == 0)
+					return 1;
+				if((fragmentShader = generateShader(gl, "mainShaderFSS")) == 0)
+					return 1;
+				if((shaderProgram = generateShaderProgram(gl, vertexShader, fragmentShader)) == 0)
+					return 1;
+				shaderProgram.vPositionLoc = gl.getAttribLocation(shaderProgram, "vPosition");
+				shaderProgram.uniform_hueShiftLoc = gl.getUniformLocation(shaderProgram, "hueShift");
+				if((rectVerticesBuffer = generateBuffer(gl, [ 1, 1, 0,   -1, 1, 0,   1, -1, 0,   -1, -1, 0 ])) == 0)
+					return 1;
+				gl.disable(gl.DEPTH_TEST);
+				gl.disable(gl.CULL_FACE);
+				
+				return 0;
+			}
+		
+			function draw()
+			{
+				//static local variables in JavaScript, from http://stackoverflow.com/a/1535650
+				if(typeof draw.hueShift == "undefined")
+					draw.hueShift = 0.0;
+			
+				gl.clearColor(0.0, 1.0, 1.0, 1.0);
+				gl.clear(gl.COLOR_BUFFER_BIT);
+			
+				gl.useProgram(shaderProgram);
+				gl.bindBuffer(gl.ARRAY_BUFFER, rectVerticesBuffer);
+				gl.vertexAttribPointer(shaderProgram.vPositionLoc, 3, gl.FLOAT, false, 0, 0);
+				gl.enableVertexAttribArray(shaderProgram.vPositionLoc);
+				gl.uniform1f(shaderProgram.uniform_hueShiftLoc, draw.hueShift);
+				gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+				
+				draw.hueShift += 1.0;
+			}
+		
+			function main()
+			{
+				if(initialize() == 1)
+					return;
+				
+				draw();
+				setInterval(draw, 20);
+			}
+		</script>
+	</head>
+	<body onload="main()">
+		<canvas id="mainCanvas" width="400" height="400">Canvas not supported.</canvas>
+	</body>
+</html>
