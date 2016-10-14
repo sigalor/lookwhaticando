@@ -2,7 +2,8 @@
 `./primes [options]`
 
 # Options
-```  --help              Displays this information
+```
+  --help              Displays this information
   --action=<action>   Specify the action the program will execute.
                       These are the supported values for <action>:
                         generate
@@ -115,7 +116,8 @@
                       and the plot-diagonal-averages action is used, this
                       option is optional, otherwise it is required.
                       This option expects the width and height of the terminal
-                      it runs in in a number of simple characters.```
+                      it runs in in a number of simple characters.
+```
 
 # Examples
 - ./primes --action=generate --limit=10K
