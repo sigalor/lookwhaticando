@@ -3,7 +3,8 @@ You need the Boost C++ library to compile the source. Adjust the include directo
 I tested the source on Linux and Windows, it should work on both (although there may be some warnings about the `%lu` format specifier for `printf` when using 32 instead of 64 bit).
 
 # Syntax
-The program's term syntax is the following (the symbols are sorted by their priority):  
+The program's term syntax is the following (the symbols are sorted by their priority):
+
 1. `!` for `NOT`
 2. `&` for `AND`
 3. `|` for `OR`
