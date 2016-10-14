@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<title>Reaction-Diffusion</title>
+		
+		<style type="text/css">
+			#rdOutput
+			{
+				position:absolute;
+				top:10px;
+				left:10px;
+			}
+			
+			#userInterface
+			{
+				position:absolute;
+				top:10px;
+				left:532px;
+			}
+		</style>
+		
+		<script type="text/javascript" src="jquery-3.1.1.min.js"></script>
+		<script id="mainShaderVSS" type="x-shader/x-vertex">
+			precision mediump float;
+			
+			attribute vec3 vPosition;
+			attribute vec2 vTexCoord;
+			varying vec3 fPosition;
+			varying vec2 fTexCoord;
+			
+			void main(void)
+			{
+				fPosition = vPosition;
+				fTexCoord = vTexCoord;
+				gl_Position = vec4(vPosition, 1.0);
+			}
+		</script>
+		<script id="mainShaderFSS" type="x-shader/x-fragment">
+			#define MAX_BRUSH_SPOTS 64
+		
+			precision mediump float;
+			
+			varying vec3 fPosition;
+			varying vec2 fTexCoord;
+			
+			uniform sampler2D texSampler;
+			uniform int action;																						//0 = just render texture to screen, 1 = update texture using reaction-diffusion, process brush spots and render to renderbuffer, 2 = like 1, but do no reaction-diffusion
+			uniform vec2 texSize;
+			uniform float diffusionRateA;
+			uniform float diffusionRateB;
+			uniform float feedRate;
+			uniform float killRate;
+			uniform float timeInterval;
+			uniform int chemicalToRender;
+			uniform int brushSpotCount;
+			uniform vec2 brushSpots[MAX_BRUSH_SPOTS];
+			uniform float brushRadius;
+			
+			float decodeConcentration(float c1, float c2)
+			{
+				return float(floor(c1*255.0)*256.0 + floor(c2*255.0)) / 65535.0;
+			}
+			
+			float decodeConcentration(int aOrB, vec2 texCoord)
+			{
+				vec4 texColor = texture2D(texSampler, texCoord);
+				if(aOrB == 0)
+					return decodeConcentration(texColor.r, texColor.g);
+				else
+					return decodeConcentration(texColor.b, texColor.a);
+			}
+			
+			vec4 encodeConcentration(float aConcentration, float bConcentration)
+			{
+				float aConcentrationBig = aConcentration * 65535.0;
+				float bConcentrationBig = bConcentration * 65535.0;
+				return vec4(floor(aConcentrationBig/256.0) / 255.0,
+							(aConcentrationBig - floor(aConcentrationBig/256.0)*256.0) / 255.0,
+							floor(bConcentrationBig/256.0) / 255.0,
+							(bConcentrationBig - floor(bConcentrationBig/256.0)*256.0) / 255.0);
+			}
+			
+			float laplacianConvolution(int aOrB)
+			{
+				float centerWeight = -1.0;
+				float adjacentNeighborWeight = 0.2;
+				float diagonalNeighborWeight = 0.05;
+				float ret = 0.0;
+				vec2 texel = 1.0 / texSize;
+				
+				ret += centerWeight * decodeConcentration(aOrB, fTexCoord);
+				ret += adjacentNeighborWeight * (decodeConcentration(aOrB, fTexCoord + vec2( texel.x, 0.0)) +
+												 decodeConcentration(aOrB, fTexCoord + vec2(-texel.x, 0.0)) +
+												 decodeConcentration(aOrB, fTexCoord + vec2(0.0,  texel.y)) +
+												 decodeConcentration(aOrB, fTexCoord + vec2(0.0, -texel.y)));
+				ret += diagonalNeighborWeight * (decodeConcentration(aOrB, fTexCoord + vec2( texel.x,  texel.y)) +
+												 decodeConcentration(aOrB, fTexCoord + vec2(-texel.x,  texel.y)) +
+												 decodeConcentration(aOrB, fTexCoord + vec2( texel.x, -texel.y)) +
+												 decodeConcentration(aOrB, fTexCoord + vec2(-texel.x, -texel.y)));
+				
+				return ret;
+			}
+			
+			void main(void)
+			{
+				//concentrations are encoded in the texture color so additional accuracy can be reached (not only 0-255, because of GL_UNSIGNED_BYTE, but 0-65535, because the combinations r+g and b+a for concentrations of A and B are used, like big endian)
+				vec4 texColor = texture2D(texSampler, fTexCoord);
+				float A = decodeConcentration(texColor.r, texColor.g);
+				float B = decodeConcentration(texColor.b, texColor.a);
+			
+				if(action == 0)
+				{
+					float C = chemicalToRender==0 ? A : B;
+					vec3 red = vec3(1.0, 0.0, 0.0),
+						 yellow = vec3(1.0, 1.0, 0.0),
+						 green = vec3(0.0, 1.0, 0.0),
+						 cyan = vec3(0.0, 1.0, 1.0),
+						 blue = vec3(0.0, 0.0, 1.0),
+						 darkblue = vec3(0.0, 0.0, 0.3);
+					if(C < 0.1)
+						gl_FragColor = vec4(mix(red, yellow, C*10.0), 1.0);
+					else if(C >= 0.1  &&  C < 0.2)
+						gl_FragColor = vec4(mix(yellow, green, (C-0.1)*10.0), 1.0);
+					else if(C >= 0.2  &&  C < 0.3)
+						gl_FragColor = vec4(mix(green, cyan, (C-0.2)*10.0), 1.0);
+					else if(C >= 0.3  &&  C < 0.4)
+						gl_FragColor = vec4(mix(cyan, blue, (C-0.3)*10.0), 1.0);
+					else if(C >= 0.4)
+						gl_FragColor = vec4(mix(blue, darkblue, (C-0.4)*(1.0/0.6)), 1.0);
+				}
+				else
+				{
+					//modify A and B concentrations according to the reaction-diffusion formula
+					if(action == 1)
+					{
+						float APrev = A;
+						A += (diffusionRateA * laplacianConvolution(0) - A*B*B + feedRate*(1.0-A)) * timeInterval;
+						B += (diffusionRateB * laplacianConvolution(1) + APrev*B*B - (killRate+feedRate)*B) * timeInterval;
+					}
+					
+					for(int i = 0; i < MAX_BRUSH_SPOTS; ++i)														//need to use constant value in 'for' condition
+					{
+						if(i >= brushSpotCount)																		//checking the actual condition here
+							break;
+						if(distance(vec2(fTexCoord)*texSize, brushSpots[i]) < brushRadius)
+							B = 1.0;
+					}
+					
+					//reencode concentration
+					gl_FragColor = encodeConcentration(A, B);
+				}
+			}
+		</script>
+		
+		<script type="text/javascript">
+			var rdCanvas, gl;
+			var vertexShader, fragmentShader, shaderProgram;
+			var rectVerticesBuffer, rectTexCoordBuffer;
+			var rdTextureWidth, rdTextureHeight, rdTexture;
+			var rdFramebuffer = null, rdFramebufferTexture = null;													//rdFramebuffer also has the self-defined attributes "width" and "height"
+			var feedRate = 0.055, killRate = 0.062;
+			var timeInterval = 1.0;
+			var doReactionDiffusion = true;
+			var chemicalToRender = 0;
+			var brushSpots = [ ];
+			var brushRadius = 5.0;
+			var brushMouseDown = false;
+			
+			function canvasMouseAction(event)
+			{
+				if(event.type == "mousedown"  &&  event.which == 1)
+					brushMouseDown = true;
+				if((event.type == "mousedown"  &&  event.which == 1)  ||  (event.type == "mousemove"  &&  brushMouseDown))
+					brushSpots.push([event.offsetX, rdTextureHeight - event.offsetY]);
+				if((event.type == "mouseup"  &&  event.which == 1)  ||  event.type == "mouseout")
+					brushMouseDown = false;
+			}
+			
+			function initializeCanvasContexts()
+			{
+				let glContext = "experimental-webgl";
+				let glContextError;
+				
+				rdCanvas = $("#rdOutput");
+				try
+				{
+					gl = rdCanvas[0].getContext(glContext, { preserveDrawingBuffer: true });						//from http://stackoverflow.com/a/4070010
+					gl.viewportWidth = rdCanvas.width();
+					gl.viewportHeight = rdCanvas.height();
+				}
+				catch(e) { glContextError = e; }
+				if(!gl)
+				{
+					alert("Canvas initialization (context: " + glContext + ") failed: " + glContextError);
+					return 1;
+				}
+				
+				rdCanvas.on("mousedown mousemove mouseup mouseout", canvasMouseAction);
+				
+				return 0;
+			}
+			
+			function generateShader(gl, sourceId)
+			{
+				let source = document.getElementById(sourceId);
+				if(!source)
+					return 0;
+				
+				let str = "";																						//from https://msdn.microsoft.com/de-de/library/dn302434(v=vs.85).aspx
+				let k = source.firstChild;
+				while(k)
+				{
+					if(k.nodeType == 3)
+						str += k.textContent;
+					k = k.nextSibling;
+				}
+				
+				let shader;
+				if(source.type == "x-shader/x-vertex")
+					shader = gl.createShader(gl.VERTEX_SHADER);
+				else if(source.type == "x-shader/x-fragment")
+					shader = gl.createShader(gl.FRAGMENT_SHADER);
+				else
+					return 0;
+				
+				gl.shaderSource(shader, str);
+				gl.compileShader(shader);
+				
+				if(!gl.getShaderParameter(shader, gl.COMPILE_STATUS))
+				{
+					alert(gl.getShaderInfoLog(shader));
+					return 0;
+				}
+				
+				return shader;
+			}
+			
+			function generateShaderProgram(gl, vShader, fShader)
+			{
+				let program = gl.createProgram();
+				gl.attachShader(program, vShader);
+				gl.attachShader(program, fShader);
+				gl.linkProgram(program);
+				
+				if(!gl.getProgramParameter(program, gl.LINK_STATUS))
+				{
+					alert(gl.getProgramInfoLog(program));
+					return 0;
+				}
+				
+				return program;
+			}
+			
+			function generateBuffer(gl, data)
+			{
+				let buffer = gl.createBuffer();
+				gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+				gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(data), gl.STATIC_DRAW);
+				
+				return buffer;
+			}
+			
+			function generateTexture(gl, dataformat, width, height, type, pixels)
+			{
+				let newTexture = gl.createTexture();
+				gl.bindTexture(gl.TEXTURE_2D, newTexture);
+				gl.texImage2D(gl.TEXTURE_2D, 0, dataformat, width, height, 0, dataformat, type, pixels);
+				
+				gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+				gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+				gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+				gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+				gl.bindTexture(gl.TEXTURE_2D, null);
+				
+				return newTexture;
+			}
+			
+			function generateFramebufferAndTexture(gl)
+			{
+				if(rdFramebuffer !== null)
+					gl.deleteFramebuffer(rdFramebuffer);
+				rdFramebuffer = gl.createFramebuffer();
+				gl.bindFramebuffer(gl.FRAMEBUFFER, rdFramebuffer);
+				rdFramebuffer.width = rdTextureWidth;
+				rdFramebuffer.height = rdTextureHeight;
+				
+				if(rdFramebufferTexture !== null)
+					gl.deleteTexture(rdFramebufferTexture);
+				rdFramebufferTexture = gl.createTexture();
+				gl.bindTexture(gl.TEXTURE_2D, rdFramebufferTexture);
+				gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+				gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+				gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, rdFramebuffer.width, rdFramebuffer.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+				gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, rdFramebufferTexture, 0);
+				
+				gl.bindTexture(gl.TEXTURE_2D, null);
+				gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+			}
+			
+			function generateInitialTextureData()
+			{
+				//allocate texture data (*4 because of RGBA)
+				let textureData = new Array(rdTextureHeight * rdTextureWidth * 4).fill(255);
+				let seedSpots = [ ];
+				let spotRadius = 20.0;
+				let offset;
+				
+				//generate blob positions, each 30px away from each other, with a random offset change of 10px
+				/*for(let y=10; y<rdTextureHeight; y+=30)
+					for(let x=10; x<rdTextureWidth; x+=30)
+						if(Math.random() < 0.5)
+							seedSpots.push([x+Math.random()*20.0-10.0, y+Math.random()*20.0-10.0]);
+				
+				//actually print the blobs to the texture (radius: 20px)
+				for(let y=0; y<rdTextureHeight; y++)
+				{
+					for(let x=0; x<rdTextureWidth; x++)
+					{
+						//fill the entire texture with A=1, B=0
+						offset = y*rdTextureWidth*4 + x*4;
+						textureData[offset + 0] = textureData[offset + 1] = 255;
+						textureData[offset + 2] = textureData[offset + 3] = 0;
+						
+						//and seed some areas with B=1 (according to http://www.karlsims.com/rd.html)
+						for(let i=0; i<seedSpots.length; i++)
+							if(Math.sqrt(Math.pow(x-seedSpots[i][0], 2) + Math.pow(y-seedSpots[i][1], 2)) < spotRadius)
+								textureData[offset + 2] = textureData[offset + 3] = 255;
+					}
+				}*/
+				
+				return textureData;
+			}
+			
+			function initializeUI()
+			{
+				$("#feedRateSlider").on("input", function() { $("#feedRateOutput").html(feedRate = this.value); });
+				$("#killRateSlider").on("input", function() { $("#killRateOutput").html(killRate = this.value); });
+				$("#doReactionDiffusionCheckbox").on("change", function() { doReactionDiffusion = this.checked; });
+				$("input[name='chemicalToRender']").on("change", function() { if(this.checked) { chemicalToRender = this.id=="chemicalToRenderA" ? 0 : 1; } });
+			}
+			
+			function refreshUIValues()
+			{
+				//feed rate
+				if($("#feedRateSlider").val() == -1)
+					{ $("#feedRateSlider").val(feedRate).prop("min", 0); $("#feedRateOutput").html(feedRate); }
+				else
+					{ feedRate = $("#feedRateSlider").prop("min", 0).val(); $("#feedRateOutput").html(feedRate); }
+				
+				//kill rate
+				if($("#killRateSlider").val() == -1)
+					{ $("#killRateSlider").val(killRate).prop("min", 0); $("#killRateOutput").html(killRate); }
+				else
+					{ killRate = $("#killRateSlider").prop("min", 0).val(); $("#killRateOutput").html(killRate); }
+				
+				//do reaction-diffusion
+				doReactionDiffusion = $("#doReactionDiffusionCheckbox").prop("checked");
+			}
+			
+			function initialize()
+			{
+				//initialize the main canvas for use with WebGL
+				if(initializeCanvasContexts() == 1)
+					return 1;
+				
+				//generate shaders and program
+				if((vertexShader = generateShader(gl, "mainShaderVSS")) == 0)
+					return 1;
+				if((fragmentShader = generateShader(gl, "mainShaderFSS")) == 0)
+					return 1;
+				if((shaderProgram = generateShaderProgram(gl, vertexShader, fragmentShader)) == 0)
+					return 1;
+				shaderProgram.vPositionLoc = gl.getAttribLocation(shaderProgram, "vPosition");
+				shaderProgram.vTexCoordLoc = gl.getAttribLocation(shaderProgram, "vTexCoord");
+				
+				//generate buffers for vertices and texture coordinates
+				rectVerticesBuffer = generateBuffer(gl, [ 1, 1, 0,   -1, 1, 0,   1, -1, 0,   -1, -1, 0 ]);
+				rectTexCoordBuffer = generateBuffer(gl, [ 1, 1,   0, 1,   1, 0,   0, 0 ]);
+				
+				//generate the starting texture
+				rdTextureWidth = gl.viewportWidth;
+				rdTextureHeight = gl.viewportHeight;
+				rdTexture = generateTexture(gl, gl.RGBA, rdTextureWidth, rdTextureHeight, gl.UNSIGNED_BYTE, new Uint8Array(generateInitialTextureData()));
+				
+				//initialize the user interface but get its values first, because some browers save them across refreshs
+				refreshUIValues();
+				initializeUI();
+				
+				//we are in 2D only, so we neither need depth testing nor face culling
+				gl.disable(gl.DEPTH_TEST);
+				gl.disable(gl.CULL_FACE);
+				
+				return 0;
+			}
+			
+			function draw()
+			{
+				//normal frame initialization
+				gl.clearColor(1.0, 1.0, 1.0, 1.0);
+				gl.clear(gl.COLOR_BUFFER_BIT);
+				gl.useProgram(shaderProgram);
+				
+				//make shader have access to vertex buffer
+				gl.bindBuffer(gl.ARRAY_BUFFER, rectVerticesBuffer);
+				gl.vertexAttribPointer(shaderProgram.vPositionLoc, 3, gl.FLOAT, false, 0, 0);
+				gl.enableVertexAttribArray(shaderProgram.vPositionLoc);
+				
+				//make shader have access to texcoord buffer
+				gl.bindBuffer(gl.ARRAY_BUFFER, rectTexCoordBuffer);
+				gl.vertexAttribPointer(shaderProgram.vTexCoordLoc, 2, gl.FLOAT, false, 0, 0);
+				gl.enableVertexAttribArray(shaderProgram.vTexCoordLoc);
+				
+				//regenerate framebuffer stuff and make shader have access to texture
+				generateFramebufferAndTexture(gl);
+				gl.activeTexture(gl.TEXTURE0);
+				gl.bindTexture(gl.TEXTURE_2D, rdTexture);
+				gl.uniform1i(gl.getUniformLocation(shaderProgram, "texSampler"), 0);
+				gl.uniform2fv(gl.getUniformLocation(shaderProgram, "texSize"), new Float32Array([rdTextureWidth, rdTextureHeight]));
+				gl.uniform1f(gl.getUniformLocation(shaderProgram, "diffusionRateA"), 1.1);
+				gl.uniform1f(gl.getUniformLocation(shaderProgram, "diffusionRateB"), 0.5);
+				gl.uniform1f(gl.getUniformLocation(shaderProgram, "feedRate"), feedRate);
+				gl.uniform1f(gl.getUniformLocation(shaderProgram, "killRate"), killRate);
+				gl.uniform1f(gl.getUniformLocation(shaderProgram, "timeInterval"), timeInterval);
+				gl.uniform1i(gl.getUniformLocation(shaderProgram, "chemicalToRender"), chemicalToRender);
+				
+				//add the spots the user would like to draw in as well
+				var niceBrushSpots = new Float32Array([].concat.apply([], brushSpots.splice(0, 64)));				//flatten an array, from http://stackoverflow.com/a/10865042
+				gl.uniform1i(gl.getUniformLocation(shaderProgram, "brushSpotCount"), niceBrushSpots.length/2);
+				if(niceBrushSpots.length != 0)
+					gl.uniform2fv(gl.getUniformLocation(shaderProgram, "brushSpots"), niceBrushSpots);
+				gl.uniform1f(gl.getUniformLocation(shaderProgram, "brushRadius"), brushRadius);
+				
+				//let WebGL render to framebuffer (i.e. rdFramebufferTexture)
+				gl.bindFramebuffer(gl.FRAMEBUFFER, rdFramebuffer);
+				gl.uniform1i(gl.getUniformLocation(shaderProgram, "action"), doReactionDiffusion ? 1 : 2);
+				gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+				
+				//finally render to screen using the updated texture
+				gl.bindTexture(gl.TEXTURE_2D, null);
+				gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+				gl.deleteTexture(rdTexture);
+				rdTexture = rdFramebufferTexture;
+				rdFramebufferTexture = null;			//VERY IMPORTANT!!!
+				gl.activeTexture(gl.TEXTURE0);
+				gl.bindTexture(gl.TEXTURE_2D, rdTexture);
+				gl.uniform1i(gl.getUniformLocation(shaderProgram, "texSampler"), 0);
+				gl.uniform1i(gl.getUniformLocation(shaderProgram, "action"), 0);
+				gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+			}
+			
+			$(document).ready(function()
+			{
+				if(initialize() == 1)
+					return;
+				
+				draw();
+				setInterval(draw, 20);
+			});
+		</script>
+	</head>
+	<body>
+		<!-- Width and height NEED TO be a power of 2 (but do not have to be the same)! -->
+		<canvas id="rdOutput" width="512" height="512">Canvas not supported...</canvas><br>
+		<div id="userInterface">
+			<table>
+				<tr>
+					<td>Feed rate:</td>
+					<td><input id="feedRateSlider" type="range" min="-1" max="0.15" step="0.0001" value="-1"><span id="feedRateOutput">(initializing...)</span></td>
+				</tr>
+				<tr>
+					<td>Kill rate:</td>
+					<td><input id="killRateSlider" type="range" min="-1" max="0.15" step="0.0001" value="-1"><span id="killRateOutput">(initializing...)</span></td>
+				</tr>
+				<tr>
+					<td>Do reaction-diffusion:</td>
+					<td><input id="doReactionDiffusionCheckbox" type="checkbox"checked></td>
+				</tr>
+				<tr>
+					<td>Chemical to render:</td>
+					<td><input type="radio" id="chemicalToRenderA" name="chemicalToRender" checked> A&nbsp;&nbsp;&nbsp;&nbsp;<input type="radio" id="chemicalToRenderB" name="chemicalToRender"> B</td>
+				</tr>
+			</table>
+		</div>
+	</body>
+</html>
+
