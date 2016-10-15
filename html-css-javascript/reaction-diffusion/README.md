@@ -1,7 +1,7 @@
 # Prerequisites
 You need a browser that supports HTML5 canvas and WebGL to be able to see the page properly.
 
-You can see it inside your browser [here](https://sigalor.github.io/lookwhaticando/html-css-javascript/reaction-diffusion/index.html).
+You can see it inside your browser [here](https://sigalor.github.io/lookwhaticando/html-css-javascript/reaction-diffusion/).
 
 # Background
 After discovering the [homepage of Karl Sims](http://www.karlsims.com/) and his [amazing tutorial on the Reaction-Diffusion algorithm using a Gray-Scott system](http://www.karlsims.com/rd.html) I decided to implement it in JavaScript/WebGL. After some difficulties it turned out to look very nice, especially when you know specific feed rate-kill rate-combinations, which can lead to surprising effects. While playing around with the parameters, I discovered some of my favorite combinations:
