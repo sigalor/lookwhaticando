@@ -24,6 +24,6 @@ $(EXECUTABLE): $(OBJ_FILES)
 	$(CXX) $^ -o $@ $(LDFLAGS)
 
 $(PROJECT_OBJ_DIR)/%.o: $(PROJECT_SRC_DIR)/%.cpp
-	$(CXX) -c $(CXXFLAGS) -I/home/cmd/Programmierung/C++/Bibliotheken/boost/ -o $@ $<
+	$(CXX) -c $(CXXFLAGS) -I/path/to/boost/ -o $@ $<
 
 .PHONY: all clean cleanexe
