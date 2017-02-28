@@ -1,0 +1,86 @@
+#contentWrapper
+{
+	width: 96.4%;
+	height: 71.5%;
+	margin: 3% 1.8% 2% 1.8%;
+	display: flex;
+	flex-direction: row;
+}
+
+#contentWrapper > .contentBox
+{
+	display: block;
+	margin: 0 0.2%;
+}
+
+.contentBox
+{
+	width: 100%;
+	border: 1px solid #999;
+	background: white;
+}
+
+.contentBoxActive
+{
+	transition: box-shadow 0.2s;
+}
+
+.contentBox:hover .contentBoxActive
+{
+	background: linear-gradient(-170deg, white, #FFAA00 50%);
+	box-shadow: 0 10px 25px;
+	z-index: 3;
+}
+
+.contentBox:hover
+{
+	background: #F7F7F7;
+}
+
+.contentBoxContent
+{
+	position: relative;
+	top: 0;
+	left: 0;
+	width: 100%;
+	height: 100%;
+}
+
+.contentBoxIcon
+{
+	position: absolute;
+	top: 3vh;
+	left: 3vh;
+	font-size: 12vh;
+}
+
+.contentBox:hover .contentBoxActive > .contentBoxIcon, .contentBox:hover .contentBoxActive > .contentBoxNumber
+{
+	color: white;
+}
+
+.contentBoxNumber
+{
+	position: absolute;
+	left: 2vh;
+	bottom: 8vh;
+	font-weight: 100;
+	font-size: 33vh;
+}
+
+.contentBoxNumberSmall
+{
+	font-size: 10vh;
+}
+
+.contentBoxText
+{
+	position: absolute;
+	left: 3vh;
+	bottom: 5.5vh;
+	font-weight: 400;
+	font-size: 6.5vh;
+	text-transform: uppercase;
+	text-shadow: 0 0 25px #888;
+	letter-spacing: -0.3mm;
+}

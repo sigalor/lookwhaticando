@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<title>Lockscreen | Prey UI</title>
+		
+		<link href="https://fonts.googleapis.com/css?family=Josefin+Sans:100,300,400,700" rel="stylesheet"> 
+		<link rel="stylesheet" href="lib/font-awesome/css/font-awesome.min.css">
+		<link rel="stylesheet" href="css/main.css">
+		<link rel="stylesheet" href="css/lockscreen.css">
+		<link rel="stylesheet" href="css/overview.css">
+		
+		<script type="text/javascript" src="js/jquery-3.1.1.min.js"></script>
+		<script type="text/javascript" src="js/main.js"></script>
+		<script type="text/javascript" src="js/statusbar.js"></script>
+		<script type="text/javascript" src="js/lockscreen.js"></script>
+		<script type="text/javascript">
+			$(document).ready(function()
+			{
+				loadPage("lockscreen", function()
+				{
+					updateStatusbarTime();
+					initializeLockscreen();
+				});
+			});
+		</script>
+	</head>
+	<body>
+		<div class="entirePage" id="currentPage"></div>
+		<div class="entirePage" id="nextPage"></div>
+	</body>
+</html>

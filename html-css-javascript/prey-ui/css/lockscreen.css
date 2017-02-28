@@ -1,0 +1,64 @@
+.lockscreenBar
+{
+	width: 100%;
+	height: 8%;
+	padding-top: 0.7vh;
+	text-transform: uppercase;
+	font-weight: 300;
+	font-size: 6.5vh;
+	text-align: center;
+	
+	line-height: 8vh;
+	vertical-align: middle;
+}
+
+#lockscreenNameBar
+{
+	margin-top: 5%;
+	color: white;
+	background: linear-gradient(to right, #bbb, #777, #bbb);
+}
+
+#lockscreenTextBar
+{
+	width: 100%;
+	height: 8%;
+	background-color: grey;
+	color: #444;
+	background: radial-gradient(at top, #555, #bbb)
+}
+
+#loginUsername
+{
+	width: 100%;
+	margin-top: 5%;
+	font-size: 4vh;
+	font-weight: 100;
+	text-align: center;
+}
+
+#loginPassword
+{
+	position: relative;
+	width: 100%;
+	height: 9%;
+}
+
+#loginPasswordInput
+{
+	position: absolute;
+	top: 0;
+	left: 20%;
+	width: 60%;
+	height: 100%;
+	padding-top: 1.2vh;
+	margin-top: 0.2vh;
+	border: 1px solid #999;
+	font-size: 6vh;
+	font-family: 'Josefin Sans', sans-serif;
+	font-weight: 100;
+	text-align: center;
+	letter-spacing: 0.2mm;
+	background-color: #FFFFFF;
+	transition: background 0.4s;
+}

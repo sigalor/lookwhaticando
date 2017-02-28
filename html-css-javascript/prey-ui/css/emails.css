@@ -1,0 +1,173 @@
+#mainWrapper
+{
+	position: relative;
+	width: 100%;
+	height: 77%;
+}
+
+#leftPane
+{
+	position: absolute;
+	width: 24%;
+	height: 77%;
+	margin-top: 0.5%;
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+}
+
+#emailsBackButton
+{
+	position: relative;
+	width: 75%;
+	height: 5vh;
+	margin-left: 2vw;
+	background-color: #f7f7f7;
+	border: 1px solid #999;
+	float: left;
+	transition: background-color 0.3s;
+}
+
+#emailsBackButton:hover
+{
+	background-color: #fff
+}
+
+#emailsBackButtonIcon
+{
+	position: relative;
+	height: 100%;
+	padding-left: 0.3vw;
+	font-size: 4.65vh;
+}
+
+#emailsBackButtonText
+{
+	position: absolute;
+	padding-top: 0.2vh;
+	padding-left: 0.5vw;
+	text-transform: uppercase;
+	font-size: 3.3vh;
+	font-weight: 300;
+	
+	line-height: 5vh;
+	vertical-align: middle;
+}
+
+
+
+#emailListWrapper
+{
+	width: 100%;
+	overflow: auto;
+	height: 72vh;
+	display: flex;
+	flex-direction: column;
+	padding-top: 1.5vh;
+	padding-left: 2vw;
+	padding-right: 4vw;
+}
+
+#emailListWrapper > .emailBox
+{
+	margin: 0.4% 0;
+}
+
+.emailBox
+{
+	width: 100%;
+	min-height: 9vh;
+	border: 1px solid #999;
+	background: #FFFC;
+	
+	display: flex;
+	align-items: center;
+}
+
+.emailBoxActive
+{
+	transition: box-shadow 0.2s;
+}
+
+.emailBox:hover .emailBoxActive
+{
+	background: linear-gradient(-170deg, white, #FFAA00 70%);
+	box-shadow: 0 3px 11px;
+	z-index: 4;
+}
+
+.emailBox:hover
+{
+	background: #F7F7F7;
+}
+
+.emailBoxContent
+{
+	position: relative;
+	top: 0;
+	left: 0;
+	width: 100%;
+	height: 100%;
+	display: flex;
+	align-items: center;
+}
+
+.emailBoxTitle
+{
+	margin-left: 0.5vw;
+	font-weight: 400;
+	font-size: 1.3vw;
+}
+
+.emailBoxIcon
+{
+	position: absolute;
+	right: 0.5vw;
+	bottom: 0.5vh;
+	font-size: 2.5vh;
+}
+
+
+
+#emailContentWrapper
+{
+	position: absolute;
+	left: 22vw;
+	width: 76%;
+	height: 100%;
+}
+
+#emailContentHeader
+{
+	margin-top: 9.4vh;
+	border: 1px solid #999;
+	border-width: 1px 0;
+	display: flex;
+	flex-direction: row;
+}
+
+#emailContentTitle
+{
+	width: 100%;
+	padding: 0 1vw;
+	padding-top: 1vh;
+	color: #FFAA00;
+	display: flex;
+	align-items: center;
+	font-size: 2.7vw;
+	font-weight: 700;
+}
+
+#emailContentMetadata
+{
+	width: 100%;
+	font-size: 2.5vh;
+}
+
+#emailContentText
+{
+	width: 100%;
+	padding: 4vh 3vh;
+	font-size: 3.3vh;
+	overflow: auto;
+}
